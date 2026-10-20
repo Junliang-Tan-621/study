@@ -1,3 +1,9 @@
+import json
+
+
+
+
+
 # BPE (Byte Pair Encoding) 分词器实现
 # 核心思想：通过统计相邻 token 对的出现频率，逐步将高频对合并为新 token，从而学习子词词汇表
 class BPETokenizer:
@@ -162,42 +168,59 @@ class BPETokenizer:
         # 第 6 步：把所有 token 拼接成一个字符串
         return "".join(tokens)
 
+    def save(self, path):
+        # 准备需要保存的数据
+        data = {
+            "vocab": self.vocab,
+            "merges": [
+                [list(pair), new_token]
+                for pair, new_token in self.merges
+            ]
+        }
 
-# 测试入口
-# if __name__ == "__main__":
-#     tokenizer = BPETokenizer()
-#
-#     # 测试1：统计相邻 token 对频率
-#     tokens = ["a", "a", "a", "b"]
-#     result = tokenizer.get_stats(tokens)
-#     print(result)  # 输出: {('a', 'a'): 2, ('a', 'b'): 1}
-#
-#     # 测试2：将最高频的 pair ("a","a") 合并为新 token "aa"
-#     tokens = ["a", "a", "a", "b"]
-#     result = tokenizer.merge(tokens, ("a", "a"), "aa")
-#     print(result)  # 输出: ['aa', 'a', 'b']
-#     tokens = ["a", "b", "a", "b"]
-#     result = tokenizer.train(tokens, num_merges=1)
-#     print(result)
-#
+        # 将数据写入 JSON 文件
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def load(self, path):
+        # 从 JSON 文件读取数据
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # 恢复词表
+        self.vocab = data["vocab"]
+
+        # 恢复反向词表
+        self.id_to_token = {
+            idx: token
+            for token, idx in self.vocab.items()
+        }
+
+        # 将合并规则中的 pair 恢复成元组
+        self.merges = [
+            (tuple(pair), new_token)
+            for pair, new_token in data["merges"]
+        ]
+
+        return self
+
+
 
 
 if __name__ == "__main__":
+    # 第一次：训练并保存
     tokenizer = BPETokenizer()
-
-    # 直接传入文本训练
     tokenizer.train_from_text("aaab", 2)
 
-    print("合并规则：", tokenizer.merges)
-    print("词表：", tokenizer.vocab)
+    tokenizer.save("bpe_tokenizer.json")
+    print("分词器已保存")
 
-    # 编码和解码
-    ids = tokenizer.encode("aaab")
+    # 第二次：创建新对象并加载
+    tokenizer2 = BPETokenizer()
+    tokenizer2.load("bpe_tokenizer.json")
+
+    # 验证加载后的分词器
+    ids = tokenizer2.encode("aaab")
     print("编码结果：", ids)
-
-    text = tokenizer.decode(ids)
-    print("解码结果：", text)
-
-
-    #第二个版本
+    print("解码结果：", tokenizer2.decode(ids))
     
