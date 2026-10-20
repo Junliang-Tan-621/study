@@ -223,4 +223,129 @@ if __name__ == "__main__":
     ids = tokenizer2.encode("aaab")
     print("编码结果：", ids)
     print("解码结果：", tokenizer2.decode(ids))
-    
+
+
+
+class ByteBPETokenizer:
+    def __init__(self):
+        # 1. 创建 256 个基础字节 token
+        self.vocab = {
+            bytes([i]): i
+            for i in range(256)
+        }
+
+        # 2. 保存合并规则
+        self.merges = []
+
+        # 3. 创建反向词表：ID -> token
+        self.id_to_token = {
+            idx: token
+            for token, idx in self.vocab.items()
+        }
+
+    def get_stats(self, tokens):
+        """统计相邻 token 对出现的次数"""
+        stats = {}
+
+        for i in range(len(tokens) - 1):
+            pair = (tokens[i], tokens[i + 1])
+            stats[pair] = stats.get(pair, 0) + 1
+
+        return stats
+
+    def get_best_pair(self, stats):
+        """找到出现次数最多的相邻 token 对"""
+        best_pair = None
+        max_count = 0
+
+        for pair, count in stats.items():
+            if count > max_count:
+                best_pair = pair
+                max_count = count
+
+        return best_pair
+
+    def merge(self, tokens, pair, new_token):
+        """将指定的相邻 token 对合并"""
+        result = []
+        i = 0
+
+        while i < len(tokens):
+            if (
+                i < len(tokens) - 1
+                and (tokens[i], tokens[i + 1]) == pair
+            ):
+                result.append(new_token)
+                i += 2
+            else:
+                result.append(tokens[i])
+                i += 1
+
+        return result
+
+    def train(self, text, num_merges):
+        """使用文本训练字节级 BPE"""
+        # 将文本转换为 UTF-8 字节 token
+        tokens = [
+            bytes([b])
+            for b in text.encode("utf-8")
+        ]
+
+        # 保存初始的 256 个基础 token
+        vocab_tokens = [
+            bytes([i])
+            for i in range(256)
+        ]
+
+        merges = []
+
+        for _ in range(num_merges):
+            stats = self.get_stats(tokens)
+
+            if not stats:
+                break
+
+            pair = self.get_best_pair(stats)
+            new_token = pair[0] + pair[1]
+
+            tokens = self.merge(tokens, pair, new_token)
+            merges.append((pair, new_token))
+
+            if new_token not in vocab_tokens:
+                vocab_tokens.append(new_token)
+
+        # 重建词表，基础字节 ID 保持为 0～255
+        self.vocab = {
+            token: idx
+            for idx, token in enumerate(vocab_tokens)
+        }
+
+        self.id_to_token = {
+            idx: token
+            for token, idx in self.vocab.items()
+        }
+
+        self.merges = merges
+
+        return tokens
+
+    def encode(self, text):
+        """将文本转换成 token ID 列表"""
+        tokens = [
+            bytes([b])
+            for b in text.encode("utf-8")
+        ]
+
+        for pair, new_token in self.merges:
+            tokens = self.merge(tokens, pair, new_token)
+
+        return [self.vocab[token] for token in tokens]
+
+    def decode(self, ids):
+        """将 token ID 列表还原为文本"""
+        token_bytes = b"".join(
+            self.id_to_token[token_id]
+            for token_id in ids
+        )
+
+        return token_bytes.decode("utf-8")
