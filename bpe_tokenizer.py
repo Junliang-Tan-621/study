@@ -115,6 +115,13 @@ class BPETokenizer:
 
         return tokens
 
+    def train_from_text(self, text, num_merges):
+        # 第一步：将文本拆成单个字符
+        tokens = list(text)
+
+        # 第二步：调用已经实现的 train() 方法
+        return self.train(tokens, num_merges)
+
     def encode(self, text):
         # 第 1 步：把文本拆成单个字符
         tokens = list(text)
@@ -172,4 +179,25 @@ class BPETokenizer:
 #     tokens = ["a", "b", "a", "b"]
 #     result = tokenizer.train(tokens, num_merges=1)
 #     print(result)
-# 
+#
+
+
+if __name__ == "__main__":
+    tokenizer = BPETokenizer()
+
+    # 直接传入文本训练
+    tokenizer.train_from_text("aaab", 2)
+
+    print("合并规则：", tokenizer.merges)
+    print("词表：", tokenizer.vocab)
+
+    # 编码和解码
+    ids = tokenizer.encode("aaab")
+    print("编码结果：", ids)
+
+    text = tokenizer.decode(ids)
+    print("解码结果：", text)
+
+
+    #第二个版本
+    
